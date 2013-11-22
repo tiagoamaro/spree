@@ -15,13 +15,12 @@ module Spree
     # object with callbacks (otherwise you will end up in an infinite recursion as the
     # associations try to save and then in turn try to call +update!+ again.)
     def update
+      update_totals
       if order.completed?
         update_payment_state
         update_shipments
         update_shipment_state
       end
-
-      update_totals
       run_hooks
       persist_totals
     end
@@ -47,14 +46,14 @@ module Spree
       update_adjustment_total
     end
 
-    
+
     # give each of the shipments a chance to update themselves
     def update_shipments
       shipments.each { |shipment| shipment.update!(order) }
     end
 
     def update_shipment_total
-      order.shipment_total = shipments.sum(:cost)
+      order.shipment_total = shipments.sum("cost + promo_total")
       update_order_total
     end
 
@@ -64,10 +63,12 @@ module Spree
 
     def update_adjustment_total
       recalculate_adjustments
-      order.adjustment_total = line_items.sum(:adjustment_total) + 
+      order.adjustment_total = line_items.sum(:adjustment_total) +
                                shipments.sum(:adjustment_total)  +
                                adjustments.eligible.sum(:amount)
-      order.tax_total = line_items.sum(:tax_total) + shipments.sum(:tax_total)
+      order.included_tax_total = line_items.sum(:included_tax_total) + shipments.sum(:included_tax_total)
+      order.additional_tax_total = line_items.sum(:additional_tax_total) + shipments.sum(:additional_tax_total)
+
       update_order_total
     end
 
@@ -82,9 +83,11 @@ module Spree
         shipment_state: order.shipment_state,
         item_total: order.item_total,
         adjustment_total: order.adjustment_total,
-        tax_total: order.tax_total,
+        included_tax_total: order.included_tax_total,
+        additional_tax_total: order.additional_tax_total,
         payment_total: order.payment_total,
-        total: order.total
+        total: order.total,
+        updated_at: Time.now,
       )
     end
 
@@ -147,7 +150,7 @@ module Spree
 
       order.state_changed('payment')
     end
-    
+
     private
 
       def round_money(n)

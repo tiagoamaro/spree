@@ -19,20 +19,22 @@ module Spree
           already_adjusted_line_items = [0] + self.adjustments.pluck(:adjustable_id)
           result = false
           order.line_items.where("id NOT IN (?)", already_adjusted_line_items).find_each do |line_item|
-            self.create_adjustment(line_item, order)
-            result = true
+            current_result = self.create_adjustment(line_item, order)
+            result ||= current_result
           end
           return result
         end
 
         def create_adjustment(adjustable, order)
           amount = self.compute_amount(adjustable)
+          return if amount == 0
           self.adjustments.create!(
             amount: amount,
             adjustable: adjustable,
             order: order,
             label: "#{Spree.t(:promotion)} (#{promotion.name})",
           )
+          true
         end
 
         # Ensure a negative amount which does not exceed the sum of the order's
@@ -69,7 +71,10 @@ module Spree
             # Therefore we nullify the source_id, leaving the adjustment in place.
             # This would mean that the order's total is not altered at all.
             adjustment_scope.where("spree_orders.completed_at IS NOT NULL").each do |adjustment|
-              adjustment.update_column(:source_id, nil)
+              adjustment.update_columns(
+                source_id: nil,
+                updated_at: Time.now,
+              )
             end
           end
       end

@@ -66,13 +66,15 @@ module Spree
     end
 
     def to_param
-      number if number
-      generate_shipment_number unless number
-      number.to_s.to_url.upcase
+      number
     end
 
     def backordered?
       inventory_units.any? { |inventory_unit| inventory_unit.backordered? }
+    end
+
+    def ready_or_pending?
+      self.ready? || self.pending?
     end
 
     def shipped=(value)
@@ -104,6 +106,7 @@ module Spree
 
     def refresh_rates
       return shipping_rates if shipped?
+      return [] unless can_get_rates?
 
       # StockEstimator.new assigment below will replace the current shipping_method
       original_shipping_method_id = shipping_method.try(:id)
@@ -137,6 +140,10 @@ module Spree
       cost + promo_total
     end
 
+    def display_discounted_cost
+      Spree::Money.new(discounted_cost, { currency: currency })
+    end
+
     def display_item_cost
       Spree::Money.new(item_cost, { currency: currency })
     end
@@ -146,7 +153,7 @@ module Spree
     end
 
     def manifest
-      inventory_units.joins(:variant).includes(:variant).group_by(&:variant).map do |variant, units|
+      inventory_units.group_by(&:variant).map do |variant, units|
         states = {}
         units.group_by(&:state).each { |state, iu| states[state] = iu.count }
         OpenStruct.new(variant: variant, quantity: units.length, states: states)
@@ -154,8 +161,8 @@ module Spree
     end
 
     def line_items
-      if order.complete? and Spree::Config[:track_inventory_levels]
-        order.line_items.select { |li| inventory_units.pluck(:variant_id).include?(li.variant_id) }
+      if order.complete? and Spree::Config.track_inventory_levels
+        order.line_items.select { |li| !li.should_track_inventory? || inventory_units.pluck(:variant_id).include?(li.variant_id) }
       else
         order.line_items
       end
@@ -180,7 +187,10 @@ module Spree
     def update!(order)
       old_state = state
       new_state = determine_state(order)
-      update_column :state, new_state
+      update_columns(
+        state: new_state,
+        updated_at: Time.now,
+      )
       after_ship if new_state == 'shipped' and old_state != 'shipped'
     end
 
@@ -212,13 +222,18 @@ module Spree
     def to_package
       package = Stock::Package.new(stock_location, order)
       inventory_units.includes(:variant).each do |inventory_unit|
-        package.add inventory_unit.variant, 1, inventory_unit.state_name
+        package.add inventory_unit.line_item, 1, inventory_unit.state_name
       end
       package
     end
 
-    def set_up_inventory(state, variant, order)
-      self.inventory_units.create(variant_id: variant.id, state: state, order_id: order.id)
+    def set_up_inventory(state, variant, order, line_item)
+      self.inventory_units.create(
+        state: state,
+        variant_id: variant.id,
+        order_id: order.id,
+        line_item_id: line_item.id
+      )
     end
 
     def persist_cost
@@ -229,7 +244,8 @@ module Spree
     def update_amounts
       self.update_columns(
         cost: selected_shipping_rate.cost,
-        adjustment_total: adjustments.map(&:update!).compact.sum
+        adjustment_total: adjustments.map(&:update!).compact.sum,
+        updated_at: Time.now,
       )
     end
 
@@ -273,7 +289,10 @@ module Spree
 
       def update_order_shipment_state
         new_state = OrderUpdater.new(order).update_shipment_state
-        order.update_column(:shipment_state, new_state)
+        order.update_columns(
+          shipment_state: new_state,
+          updated_at: Time.now,
+        )
       end
 
       def send_shipped_email
@@ -293,6 +312,10 @@ module Spree
 
       def recalculate_adjustments
         Spree::ItemAdjustments.new(self).update
+      end
+
+      def can_get_rates?
+        order.ship_address && order.ship_address.valid?
       end
   end
 end

@@ -14,6 +14,11 @@ describe Spree::LineItem do
       line_item.variant.destroy
       expect(line_item.reload.variant).to be_a Spree::Variant
     end
+
+    it "returns inventory when a line item is destroyed" do
+      Spree::OrderInventory.any_instance.should_receive(:verify).with(line_item, nil)
+      line_item.destroy
+    end
   end
 
   context "#save" do
@@ -90,7 +95,7 @@ describe Spree::LineItem do
     it "copies over a variant's tax category" do
       line_item.tax_category = nil
       line_item.copy_tax_category
-      line_item.tax_category.should == line_item.variant.product.tax_category
+      expect(line_item.tax_category).to eq(line_item.variant.tax_category)
     end
   end
 

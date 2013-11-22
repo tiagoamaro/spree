@@ -50,11 +50,9 @@ module Spree
         # hence the use of the update_line_items method, defined within order_decorator.rb.
         order_params.delete("line_items_attributes")
         if @order.update_attributes(order_params)
-          line_item_attributes = params[:order][:line_items].map do |id, attributes|
-            [id, attributes.slice(*permitted_line_item_attributes)]
-          end
-          line_item_attributes = Hash[line_item_attributes].delete_if { |k,v| v.empty? }
-          @order.update_line_items(line_item_attributes)
+
+          deal_with_line_items if params[:order][:line_items]
+
           @order.line_items.reload
           @order.update!
           respond_with(@order, default_template: :show)
@@ -72,16 +70,50 @@ module Spree
       end
 
       private
+        def deal_with_line_items
+          line_item_attributes = params[:order][:line_items].map do |id, attributes|
+            [id, attributes.slice(*permitted_line_item_attributes)]
+          end
+          line_item_attributes = Hash[line_item_attributes].delete_if { |k,v| v.empty? }
+          @order.update_line_items(line_item_attributes)
+        end
 
         def order_params
           if params[:order]
-            params[:order][:line_items_attributes] = params[:order][:line_items]
+            params[:order][:payments_attributes] = params[:order][:payments] if params[:order][:payments]
+            params[:order][:shipments_attributes] = params[:order][:shipments] if params[:order][:shipments]
+            params[:order][:line_items_attributes] = params[:order][:line_items] if params[:order][:line_items]
             params[:order][:ship_address_attributes] = params[:order][:ship_address] if params[:order][:ship_address]
             params[:order][:bill_address_attributes] = params[:order][:bill_address] if params[:order][:bill_address]
+
             params.require(:order).permit(permitted_order_attributes)
           else
             {}
           end
+        end
+
+        def permitted_order_attributes
+          if current_api_user.has_spree_role? "admin"
+            super << admin_order_attributes
+          else
+            super
+          end
+        end
+
+        def permitted_shipment_attributes
+          if current_api_user.has_spree_role? "admin"
+            super << admin_shipment_attributes
+          else
+            super
+          end
+        end
+
+        def admin_shipment_attributes
+          [:shipping_method, :stock_location, :inventory_units => [:variant_id, :sku]]
+        end
+
+        def admin_order_attributes
+          [:import, :number, :completed_at, :locked_at, :channel]
         end
 
         def next!(options={})

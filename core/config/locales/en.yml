@@ -289,6 +289,7 @@ en:
     add: Add
     add_action_of_type: Add action of type
     add_country: Add Country
+    add_coupon_code: Add Coupon Code
     add_new_header: Add New Header
     add_new_style: Add New Style
     add_one: Add One
@@ -403,6 +404,9 @@ en:
     card_type: Brand
     card_type_is: Card type is
     cart: Cart
+    cart_subtotal:
+      one: 'Subtotal (1 item)'
+      other: 'Subtotal (%{count} items)'
     categories: Categories
     category: Category
     check_for_spree_alerts: Check for Spree alerts
@@ -649,6 +653,15 @@ en:
     look_for_similar_items: Look for similar items
     mail_method_settings: Mail Method Settings
     mail_methods: Mail Methods
+    mail_settings:
+      auth:
+        none: "None"
+        plain: "Plain"
+        login: "Login"
+        cram_md5: "cram_md5"
+      security:
+        ssl: "SSL"
+        tls: "TLS"
     make_refund: Make refund
     master_price: Master Price
     match_choices:
@@ -669,6 +682,7 @@ en:
     new: New
     new_adjustment: New Adjustment
     new_customer: New Customer
+    new_country: New Country
     new_image: New Image
     new_option_type: New Option Type
     new_order: New Order
@@ -705,6 +719,7 @@ en:
     no_rules_added: No rules added
     no_resource_found: ! 'No %{resource} found'
     no_shipping_methods_found: No shipping methods found
+    no_shipping_method_selected: No shipping method selected.
     no_trackers_found: No Trackers Found
     no_stock_locations_found: No stock locations found
     no_tracking_present: No tracking details provided.
@@ -843,15 +858,15 @@ en:
       create_adjustment:
         description: Creates a promotion credit adjustment on the order
         name: Create adjustment
-      create_item_adjustment:
+      create_item_adjustments:
         description: Creates a promotion credit adjustment on a line item
         name: Create order item adjustment
       create_line_items:
         description: Populates the cart with the specified quantity of variant
         name: Create line items
-      give_store_credit:
-        description: Gives the user store credit of the amount specified
-        name: Give store credit
+      free_shipping:
+        description: Makes all shipments for the order free
+        name: Free shipping
     promotion_actions: Actions
     promotion_form:
       match_policies:
@@ -948,6 +963,7 @@ en:
     ship_total: Ship Total
     shipment: Shipment
     shipment_adjustments: "Shipment adjustments"
+    shipment_details: "From %{stock_location} via %{shipping_method}"
     shipment_inc_vat: Shipment including VAT
     shipment_mailer:
       shipped_email:
@@ -1031,12 +1047,12 @@ en:
     successfully_signed_up_for_analytics: Successfully signed up for Spree Analytics
     successfully_updated: ! '%{resource} has been successfully updated!'
     tax: Tax
+    tax_included: "Tax (incl.)"
     tax_categories: Tax Categories
     tax_category: Tax Category
     tax_rate_amount_explanation: Tax rates are a decimal amount to aid in calculations, (i.e. if the tax rate is 5% then enter 0.05)
     tax_rates: Tax Rates
     tax_settings: Tax Settings
-    tax_total: Tax Total
     taxon: Taxon
     taxon_edit: Edit Taxon
     taxon_placeholder: Add a Taxon
@@ -1060,6 +1076,7 @@ en:
     time: Time
     to_add_variants_you_must_first_define: To add variants, you must first define
     total: Total
+    track_inventory: Track Inventory
     tracking: Tracking
     tracking_number: Tracking Number
     tracking_url: Tracking URL

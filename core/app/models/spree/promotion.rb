@@ -14,7 +14,7 @@ module Spree
     validates_associated :rules
 
     validates :name, presence: true
-    validates :path, uniqueness: true
+    validates :path, uniqueness: true, allow_blank: true
     validates :usage_limit, numericality: { greater_than: 0, allow_nil: true }
     validates :description, length: { maximum: 255 }
 
@@ -34,12 +34,16 @@ module Spree
         where('expires_at IS NULL OR expires_at > ?', Time.now)
     end
 
+    def self.order_activatable?(order)
+      order && !UNACTIVATABLE_ORDER_STATES.include?(order.state)
+    end
+
     def expired?
       starts_at && Time.now < starts_at || expires_at && Time.now > expires_at
     end
 
     def activate(payload)
-      return unless order_activatable? payload[:order]
+      return unless self.class.order_activatable?(payload[:order])
 
       # Track results from actions to see if any action has been taken.
       # Actions should return nil/false if no action has been taken.
@@ -58,17 +62,19 @@ module Spree
     end
 
     def rules_are_eligible?(promotable, options = {})
+      # Promotions without rules are eligible by default.
       return true if rules.none?
       eligible = lambda { |r| r.eligible?(promotable, options) }
+      specific_rules = rules.for(promotable)
       if match_policy == 'all'
-        rules.for(promotable).all?(&eligible)
+        # If there are rules for this promotion, but no rules for this 
+        # particular promotable, then the promotion is ineligible by default.
+        specific_rules.any? && specific_rules.all?(&eligible)
       else
-        rules.for(promotable).any?(&eligible)
+        # If there are no rules for this promotable, then this will return false.
+        # If there are rules for this promotable, but they are ineligible, this will return false.
+        specific_rules.any?(&eligible)
       end
-    end
-
-    def order_activatable?(order)
-      order && !UNACTIVATABLE_ORDER_STATES.include?(order.state)
     end
 
     # Products assigned to all product rules

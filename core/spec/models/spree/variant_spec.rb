@@ -344,4 +344,51 @@ describe Spree::Variant do
       expect(variant.total_on_hand).to eq(Spree::Stock::Quantifier.new(variant).total_on_hand)
     end
   end
+
+  describe '#tax_category' do
+    context 'when tax_category is nil' do
+      let(:product) { build(:product) }
+      let(:variant) { build(:variant, product: product, tax_category_id: nil) }
+      it 'returns the parent products tax_category' do
+        expect(variant.tax_category).to eq(product.tax_category)
+      end
+    end
+
+    context 'when tax_category is set' do
+      let(:tax_category) { create(:tax_category) }
+      let(:variant) { build(:variant, tax_category: tax_category) }
+      it 'returns the tax_category set on itself' do
+        expect(variant.tax_category).to eq(tax_category)
+      end
+    end
+  end
+
+  describe "touching" do
+    it "updates a product" do
+      variant.product.update_column(:updated_at, 1.day.ago)
+      variant.touch
+      variant.product.reload.updated_at.should be_within(3.seconds).of(Time.now)
+    end
+  end
+
+  describe "#should_track_inventory?" do
+
+    it 'should not track inventory when global setting is off' do
+      Spree::Config[:track_inventory_levels] = false
+
+      build(:variant).should_track_inventory?.should eq(false)
+    end
+
+    it 'should not track inventory when variant is turned off' do
+      Spree::Config[:track_inventory_levels] = true
+
+      build(:on_demand_variant).should_track_inventory?.should eq(false)
+    end
+
+    it 'should track inventory when global and variant are on' do
+      Spree::Config[:track_inventory_levels] = true
+
+      build(:variant).should_track_inventory?.should eq(true)
+    end
+  end
 end

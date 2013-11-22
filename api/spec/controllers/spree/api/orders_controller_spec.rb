@@ -132,6 +132,15 @@ module Spree
       expect(Order.last.line_items.first.price.to_f).to eq(variant.price)
     end
 
+    context "admin user imports order" do
+      before { current_api_user.stub has_spree_role?: true }
+
+      it "sets channel" do
+        api_post :create, :order => { channel: "amazon" }
+        expect(json_response['channel']).to eq "amazon"
+      end
+    end
+
     # Regression test for #3404
     it "does not update line item needlessly" do
       Order.should_receive(:create!).and_return(order = Spree::Order.new)
@@ -181,6 +190,16 @@ module Spree
         address.delete(:state)
         address.delete(:country)
         address
+      end
+
+      context "line_items hash not present in request" do
+        it "responds successfully" do
+          api_put :update, :id => order.to_param, :order => {
+            :email => "hublock@spreecommerce.com"
+          }
+
+          expect(response).to be_success
+        end
       end
 
       it "updates quantities of existing line items" do
@@ -355,6 +374,14 @@ module Spree
           api_get :index
           json_response["orders"].should == []
         end
+      end
+
+      it "responds with orders updated_at with miliseconds precision" do
+        api_get :index
+        milisecond = order.updated_at.strftime("%L")
+        updated_at = json_response["orders"].first["updated_at"]
+
+        expect(updated_at.split("T").last).to have_content(milisecond)
       end
 
       context "with two orders" do

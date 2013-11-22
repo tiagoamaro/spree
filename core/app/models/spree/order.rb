@@ -41,7 +41,7 @@ module Spree
     has_many :adjustments, -> { order("#{Adjustment.table_name}.created_at ASC") }, as: :adjustable, dependent: :destroy
     has_many :line_item_adjustments, through: :line_items, source: :adjustments
     has_many :shipment_adjustments, through: :shipments, source: :adjustments
-    has_many :all_adjustments, class_name: Spree::Adjustment
+    has_many :all_adjustments, class_name: 'Spree::Adjustment'
     has_many :inventory_units
 
     has_many :shipments, dependent: :destroy do
@@ -124,8 +124,12 @@ module Spree
       Spree::Money.new(adjustment_total, { currency: currency })
     end
 
-    def display_tax_total
-      Spree::Money.new(tax_total, { currency: currency })
+    def display_included_tax_total
+      Spree::Money.new(included_tax_total, { currency: currency })
+    end
+
+    def display_additional_tax_total
+      Spree::Money.new(additional_tax_total, { currency: currency })
     end
 
     def display_ship_total
@@ -159,10 +163,10 @@ module Spree
 
     # If true, causes the confirmation step to happen during the checkout process
     def confirmation_required?
-      if payments.empty? and Spree::Config[:always_include_confirm_step]
+      if payments.empty? && Spree::Config[:always_include_confirm_step]
         true
       else
-        payments.map(&:payment_method).compact.any?(&:payment_profiles_supported?)
+        payments.valid.map(&:payment_method).compact.any?(&:payment_profiles_supported?)
       end
     end
 
@@ -193,7 +197,7 @@ module Spree
     def tax_address
       Spree::Config[:tax_using_ship_address] ? ship_address : bill_address
     end
-    
+
     def updater
       @updater ||= OrderUpdater.new(self)
     end
@@ -322,13 +326,6 @@ module Spree
       updater.run_hooks
 
       deliver_order_confirmation_email
-
-      self.state_changes.create(
-        previous_state: 'cart',
-        next_state:     'complete',
-        name:           'order' ,
-        user_id:        self.user_id
-      )
     end
 
     def deliver_order_confirmation_email
@@ -453,6 +450,11 @@ module Spree
       @coupon_code = code.strip.downcase rescue nil
     end
 
+    def can_add_coupon?
+      Spree::Promotion.order_activatable?(self)
+    end
+
+
     def shipped?
       %w(partial shipped).include?(shipment_state)
     end
@@ -473,11 +475,14 @@ module Spree
     #
     # At some point the might need to force the order to transition from address
     # to delivery again so that proper updated shipments are created.
-    # e.g. customer goes back from payment step and changes order items 
+    # e.g. customer goes back from payment step and changes order items
     def ensure_updated_shipments
       if shipments.any?
         self.shipments.destroy_all
-        self.update_column(:state, "address")
+        self.update_columns(
+          state: "address",
+          updated_at: Time.now,
+        )
       end
     end
 
@@ -489,7 +494,7 @@ module Spree
       (bill_address.empty? && ship_address.empty?) || bill_address.same_as?(ship_address)
     end
 
-  
+
     def set_shipments_cost
       shipments.each(&:update_amounts)
       updater.update_shipment_total

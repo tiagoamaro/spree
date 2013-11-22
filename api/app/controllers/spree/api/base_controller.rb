@@ -10,10 +10,6 @@ module Spree
       include ::ActionController::Head
       include ::ActionController::ConditionalGet
 
-      self.responder = Spree::Api::Responders::AppResponder
-
-      respond_to :json
-
       attr_accessor :current_api_user
 
       before_filter :set_content_type
@@ -48,7 +44,7 @@ module Spree
       # users should be able to set price when importing orders via api
       def permitted_line_item_attributes
         if current_api_user.has_spree_role?("admin")
-          super << [:price]
+          super << [:price, :variant_id, :sku]
         else
           super
         end
